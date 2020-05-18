@@ -1,0 +1,11 @@
+[PAD]
+[UNK]
+this
+is
+a
+sentence
+?
+.
+to
+check
+tokenizer
