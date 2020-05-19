@@ -103,10 +103,10 @@ class CMLA(nn.Module):
         if mask is None:
             mask = torch.ones_like(input_ids).to(input_ids.device)
         # make context window
-        pad = torch.LongTensor([pad_id] * input_ids.size(0) * (cs//2)).view(-1, 1).to(input_ids.device)
+        pad = torch.LongTensor([pad_id] * input_ids.size(0) * (cs//2)).view(-1, cs//2).to(input_ids.device)
         x = torch.cat((pad, input_ids, pad), dim=-1)
-        x = torch.stack((x.roll(1, dims=-1), x, x.roll(-1, dims=-1)), dim=-1)
-        x = x[..., 1:-1, :]
+        x = torch.stack(tuple(x.roll(i, dims=-1) for i in range(-(cs//2), cs//2 + 1)), dim=-1)
+        x = x[..., cs//2:-(cs//2), :]
         # embedd input and flatten context-window
         x = self.embedding(x).flatten(-2)
         h, _ = self.embeddGRU(x, self.embedd_h0.repeat(1, x.size(0), 1))
