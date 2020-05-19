@@ -9,7 +9,8 @@ from tokenizer import WordTokenizer
 model_dir = "results/SemEval2015"
 # sample text
 text = "The ambience is nice for conversation."
-text = "This is a nice place to eat."
+text = "The staff was really nice but the food was disgusting!"
+# text = "In the summer months, the back garden area is really nice."
 # text = "Das Essen war sehr lecker."
 
 # load tokenizer and model

@@ -14,8 +14,11 @@ class Prototyp(nn.Module):
         # create tensors
         self.V = nn.Parameter(T(np.random.uniform(-0.2, 0.2, size=(nh, nh))))
 
-    def forward(self, h, e, u):
+    def forward(self, h, e, u, mask):
+        # apply softmax activation and mask to e
         e = torch.softmax(e, dim=-1).view(*e.size(), 1)
+        e = e * mask.unsqueeze(-1).float()
+        # compute next prototyp vector
         return torch.tanh(self.V @ u) + (h * e).sum(-2).permute(1, 0)
         
 
@@ -36,7 +39,7 @@ class CoupledAttention(nn.Module):
         self.G_o_drop = nn.Dropout(dropout_rate)
         self.r_drop = nn.Dropout(dropout_rate)
 
-    def forward(self, h, u_a, u_o):
+    def forward(self, h, u_a, u_o, mask):
         # f = h @ G @ u
         f = lambda G, u: ((h @ G) * u.permute(1, 0).unsqueeze(1)).sum(-1)
         # apply f
@@ -44,8 +47,12 @@ class CoupledAttention(nn.Module):
         beta = torch.cat((f1, f2), dim=0)
         beta = torch.tanh(beta)
         beta = beta.flatten(2).permute(1, 2, 0)
+        # apply mask to beta
+        beta = beta * mask.unsqueeze(-1).float()
         # pass through gru
         r, _ = self.attention(beta, self.r0.repeat(1, beta.size(0), 1))
+        # apply mask and dropout to r
+        r = r * mask.unsqueeze(-1).float()
         r = self.r_drop(r)
         # return weighted sum of features
         return r, r @ self.v
@@ -89,9 +96,12 @@ class CMLA(nn.Module):
         self.opinion_drop = nn.Dropout(dropout_rate)
         self.h_drop = nn.Dropout(dropout_rate)
 
-    def forward(self, input_ids):
+    def forward(self, input_ids, mask=None):
 
         pad_id, cs = self.config['pad_id'], self.config['cs']
+        # create default mask
+        if mask is None:
+            mask = torch.ones_like(input_ids).to(input_ids.device)
         # make context window
         pad = torch.LongTensor([pad_id] * input_ids.size(0) * (cs//2)).view(-1, 1).to(input_ids.device)
         x = torch.cat((pad, input_ids, pad), dim=-1)
@@ -100,7 +110,8 @@ class CMLA(nn.Module):
         # embedd input and flatten context-window
         x = self.embedding(x).flatten(-2)
         h, _ = self.embeddGRU(x, self.embedd_h0.repeat(1, x.size(0), 1))
-        # apply dropout to hidden activation
+        # apply mask and dropout
+        h = h * mask.unsqueeze(-1).float()
         h = self.h_drop(h)
 
         aspect_r, opinion_r = 0, 0
@@ -108,14 +119,14 @@ class CMLA(nn.Module):
         # pass through layers
         for _ in range(self.config['l']):
             # apply coupled attention
-            aspect_ri, aspect_ei = self.aspect_attention(h, aspect_ui, opinion_ui)
-            opinion_ri, opinion_ei = self.opinion_attention(h, aspect_ui, opinion_ui)
+            aspect_ri, aspect_ei = self.aspect_attention(h, aspect_ui, opinion_ui, mask)
+            opinion_ri, opinion_ei = self.opinion_attention(h, aspect_ui, opinion_ui, mask)
             # update attention vectors
             aspect_r += aspect_ri
             opinion_r += opinion_ri
             # update prototyp-vectors
-            aspect_ui = self.aspect_proto(h, aspect_ei, aspect_ui)
-            opinion_ui = self.aspect_proto(h, opinion_ei, opinion_ui)
+            aspect_ui = self.aspect_proto(h, aspect_ei, aspect_ui, mask)
+            opinion_ui = self.aspect_proto(h, opinion_ei, opinion_ui, mask)
 
         # pass through classifier
         aspect_logits = self.aspect_classifier(self.aspect_drop(aspect_r))

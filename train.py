@@ -20,7 +20,7 @@ train_data_file = "data/SemEval2014/train.json"
 test_data_file = "data/SemEval2014/test.json"
 # general
 epochs = 5
-batch_size = 10
+batch_size = 6
 max_seq_length = 64
 unknown_prob = 0.01
 # optimizer
@@ -28,10 +28,10 @@ learning_rate = 1e-3
 weight_decay = 0
 # tokenizer
 do_lower_case = True
-gensim_embeddings_file = "C:/Users/Nicla/Documents/Datasets/WordEmbeddings/englishYelp.bin" # GoogleNews-vectors-negative300.bin"
+gensim_embeddings_file = "C:/Users/Nicla/Documents/Datasets/WordEmbeddings/englishYelp.bin" # german_deepset.bin" # GoogleNews-vectors-negative300.bin"
 embedding_dim = 200
 # save directory
-save_dir = "results/test"
+save_dir = "results/SemEval2014"
 os.makedirs(save_dir, exist_ok=True)
 
 # prepare data
@@ -95,10 +95,11 @@ if gensim_embeddings_file is not None:
 model.to(device)
 
 # optimizer and criterium
+print("Create Optimizer and Criterium...")
 optim = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 criterium = torch.nn.CrossEntropyLoss()
 
-# create input ids
+# create dataloaders
 print("Create Dataloaders...")
 
 def create_dataset(all_tokens, all_labels_a, all_labels_o):
@@ -146,7 +147,7 @@ for e in range(1, 1+epochs):
         targets_a = targets_a[mask].view(-1)
         targets_o = targets_o[mask].view(-1)
         # pass through model and apply mask
-        logits_a, logits_o = model.forward(input_ids.to(device))
+        logits_a, logits_o = model.forward(input_ids.to(device), mask.to(device))
         logits_a, logits_o = logits_a[mask, :].view(-1, 3), logits_o[mask, :].view(-1, 3)
         # compute loss
         loss_a = criterium(logits_a, targets_a.to(device))
@@ -180,7 +181,7 @@ for e in range(1, 1+epochs):
             mask = input_ids != tokenizer.pad_token_id
             t_a, t_o = t_a[mask].view(-1), t_o[mask].view(-1)
             # pass through model
-            logits_a, logits_o = model.forward(input_ids.to(device))
+            logits_a, logits_o = model.forward(input_ids.to(device), mask.to(device))
             logits_a, logits_o = logits_a[mask, :].view(-1, 3), logits_o[mask, :].view(-1, 3)
             # compute loss
             loss_a = criterium(logits_a, t_a.to(device))
