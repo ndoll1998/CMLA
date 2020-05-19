@@ -28,7 +28,7 @@ class WordTokenizer(object):
 
     def __init__(self, vocab, do_lower_case=True, unknown_token="[UNK]", padding_token="[PAD]"):
         # create empty vocabulary
-        self.vocab = OrderedDict()
+        self.vocab_ = OrderedDict()
         self.do_lower_case = do_lower_case
         self.unknown_token = unknown_token
         self.padding_token = padding_token
@@ -36,23 +36,22 @@ class WordTokenizer(object):
         # if vocab is a path to a file
         if (type(vocab) is str) and os.path.isfile(vocab):
             # open file and read tokens
-            with open(vocab, 'r', encoding='utf-8') as f:
+            with open(vocab, 'r', encoding='latin-1') as f:
                 tokens = f.readlines()
             # initialize from tokens
             self.__init__(tokens)
 
         # if vocab is the vocabulary
         elif type(vocab) in (list, tuple):
-            # add to vocabulary
-            for index, token in enumerate(vocab):
-                self.vocab[token.rstrip("\n")] = index    
+            # add tokens to vocab
+            self.add_tokens(vocab)
 
         # invalid argument
         else:
             raise RuntimeError("Vocab must be either a path to a vocab-file or the ordered vocabulary!")
 
         # make sure special tokens are in vocab
-        if self.unknown_token not in self.vocab:
+        if self.unknown_token not in self.vocab_:
             raise RuntimeError("Unkown token is not in vocab!")
 
     @property
@@ -61,25 +60,27 @@ class WordTokenizer(object):
     @property
     def unk_token_id(self):
         return self.convert_token_to_id(self.unknown_token)
+    @property
+    def vocab(self):
+        return list(self.vocab_.keys())
 
     def tokenize(self, text):
         return tokenize(text, do_lower_case=self.do_lower_case)
 
     def convert_token_to_id(self, token):
         # get token-id if contained in vocab else return unnknown token
-        return self.vocab.get(token.replace('##', ''), self.vocab[self.unknown_token])
+        return self.vocab_.get(token.replace('##', ''), self.vocab_[self.unknown_token])
 
     def convert_tokens_to_ids(self, tokens):
         # convert all tokens to ids
         return [self.convert_token_to_id(token) for token in tokens]
 
     def add_token(self, token):
-        token = token.rstrip("\n")
+        token = token.rstrip("\n").replace('##', '')
         # check if token is already in vocab
-        if token in self.vocab:
-            raise RuntimeError("Token %s already in vocab!" % token)
-        # add to vocab
-        self.vocab[token] = len(vocab)
+        if token not in self.vocab_:
+            # add to vocab
+            self.vocab_[token] = len(self.vocab_)
 
     def add_tokens(self, tokens):
         # add all tokens to vocab
@@ -87,4 +88,10 @@ class WordTokenizer(object):
             self.add_token(token)
 
     def __len__(self):
-        return len(self.vocab)
+        return len(self.vocab_)
+
+    def save(self, path):
+        # save vocabulary to path
+        with open(os.path.join(path, 'vocab.txt'), 'w+') as f:
+            for token in self.vocab_:
+                f.write(token + '\n')
