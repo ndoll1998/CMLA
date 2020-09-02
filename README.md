@@ -5,5 +5,5 @@ PyTorch implementation of [Coupled Multi-Layer Attentions](https://www.aaai.org/
 
 | Dataset           | Aspect-F1 | Opinion-F1 |
 | :---------------- | :-------: | :--------: |
-| GermanYelp        |   68.1    |    56.9    |
-| SemEval2015Task12 |   63.6    |    60.4    |
+| SemEval2015Task12 |   68.1    |    56.9    |
+| GermanYelp        |   66.8    |    64.2    |
